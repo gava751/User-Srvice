@@ -14,7 +14,7 @@ public interface PaymentCardService {
 
     List<PaymentCardDto> getAllByUserId(Long userId);
 
-    void activate(Long id);
+    PaymentCardDto activate(Long userId, Long id);
 
-    void deactivate(Long id);
+    PaymentCardDto deactivate(Long userId, Long id);
 }
