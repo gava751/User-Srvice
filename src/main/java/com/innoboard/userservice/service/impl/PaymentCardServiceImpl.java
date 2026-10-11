@@ -67,21 +67,20 @@ public class PaymentCardServiceImpl implements PaymentCardService {
 
     @Override
     @Transactional
-    public void activate(Long id) {
-        setActive(id, true);
+    public PaymentCardDto activate(Long userId, Long id) {
+        return setActive(userId, id, true);
     }
 
     @Override
     @Transactional
-    public void deactivate(Long id) {
-        setActive(id, false);
+    public PaymentCardDto deactivate(Long userId, Long id) {
+        return setActive(userId, id, true);
     }
 
-    private void setActive(Long id, boolean active) {
-        PaymentCardEntity card = paymentCardRepository.findById(id)
-                .orElseThrow(() -> new CardNotFoundException(id));
+    private PaymentCardDto setActive(Long userId, Long id, boolean active) {
+        PaymentCardEntity card = findCardOrThrow(userId, id);
         card.setActive(active);
-        paymentCardRepository.save(card);
+        return cardMapper.toDto(paymentCardRepository.save(card));
     }
 
     private PaymentCardEntity findCardOrThrow(Long userId, Long id) {
