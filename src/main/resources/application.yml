@@ -1,11 +1,15 @@
 spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
   application:
     name: user-service
 
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/user_service}
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
+    username: ${DB_USERNAME:user_service}
+    password: ${DB_PASSWORD:user_service}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -31,3 +35,7 @@ management:
     health:
       probes:
         enabled: true
+
+logging:
+  level:
+    org.hibernate.SQL: debug
