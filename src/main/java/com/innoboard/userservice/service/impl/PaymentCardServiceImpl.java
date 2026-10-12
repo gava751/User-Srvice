@@ -1,5 +1,6 @@
 package com.innoboard.userservice.service.impl;
 
+import com.innoboard.userservice.config.RedisCacheConfig;
 import com.innoboard.userservice.domain.PaymentCardEntity;
 import com.innoboard.userservice.domain.UserEntity;
 import com.innoboard.userservice.dto.PaymentCardDto;
@@ -11,6 +12,7 @@ import com.innoboard.userservice.repository.PaymentCardRepository;
 import com.innoboard.userservice.repository.UserRepository;
 import com.innoboard.userservice.service.PaymentCardService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +30,7 @@ public class PaymentCardServiceImpl implements PaymentCardService {
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = RedisCacheConfig.USERS_WITH_CARDS, key = "#userId")
     public PaymentCardDto create(Long userId, PaymentCardDto dto) {
         UserEntity user= userRepository.findById(userId)
                 .orElseThrow(()->new UserPrincipalNotFoundException(userId));
@@ -59,6 +62,7 @@ public class PaymentCardServiceImpl implements PaymentCardService {
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = RedisCacheConfig.USERS_WITH_CARDS, key = "#userId")
     public PaymentCardDto update(Long userId, Long id, PaymentCardDto dto) {
         PaymentCardEntity card = findCardOrThrow(userId, id);
         cardMapper.updateEntityFromDto(dto, card);
@@ -67,12 +71,14 @@ public class PaymentCardServiceImpl implements PaymentCardService {
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = RedisCacheConfig.USERS_WITH_CARDS, key = "#userId")
     public PaymentCardDto activate(Long userId, Long id) {
         return setActive(userId, id, true);
     }
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = RedisCacheConfig.USERS_WITH_CARDS, key = "#userId")
     public PaymentCardDto deactivate(Long userId, Long id) {
         return setActive(userId, id, true);
     }

@@ -1,18 +1,27 @@
 package com.innoboard.userservice.service.impl;
 
+import com.innoboard.userservice.config.RedisCacheConfig;
 import com.innoboard.userservice.domain.UserEntity;
+import com.innoboard.userservice.dto.PaymentCardDto;
 import com.innoboard.userservice.dto.UserDto;
+import com.innoboard.userservice.dto.UserWithCardsDto;
 import com.innoboard.userservice.exception.UserPrincipalNotFoundException;
+import com.innoboard.userservice.mapper.PaymentCardMapper;
 import com.innoboard.userservice.mapper.UserMapper;
+import com.innoboard.userservice.repository.PaymentCardRepository;
 import com.innoboard.userservice.repository.UserRepository;
 import com.innoboard.userservice.repository.specification.UserSpecifications;
 import com.innoboard.userservice.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -20,6 +29,8 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final UserMapper userMapper;
+    private final PaymentCardRepository paymentCardRepository;
+    private final PaymentCardMapper cardMapper;
 
     @Override
     @Transactional
@@ -45,6 +56,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = RedisCacheConfig.USERS_WITH_CARDS, key = "#id")
     public UserDto update(Long id, UserDto dto) {
         UserEntity entity = findUserOrThrow(id);
         userMapper.updateEntityFromDto(dto, entity);
@@ -53,14 +65,25 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = RedisCacheConfig.USERS_WITH_CARDS, key = "#id")
     public UserDto activate(Long id) {
         return setActive(id, true);
     }
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = RedisCacheConfig.USERS_WITH_CARDS, key = "#id")
     public UserDto deactivate(Long id) {
         return setActive(id, false);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    @Cacheable(cacheNames = RedisCacheConfig.USERS_WITH_CARDS, key = "#id",unless = "#result=null")
+    public UserWithCardsDto getByIdWithCards(Long id) {
+        UserEntity user = findUserOrThrow(id);
+        List<PaymentCardDto> cards = cardMapper.toDtoList(paymentCardRepository.findByUserId(id));
+        return new UserWithCardsDto(userMapper.toDto(user), cards);
     }
 
     private UserDto setActive(Long id, boolean active) {

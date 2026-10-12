@@ -1,6 +1,7 @@
 package com.innoboard.userservice.controller;
 
 import com.innoboard.userservice.dto.UserDto;
+import com.innoboard.userservice.dto.UserWithCardsDto;
 import com.innoboard.userservice.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -50,5 +51,10 @@ public class UserController {
     @PatchMapping("/{id}/deactivate")
     ResponseEntity<UserDto> deactivate(@PathVariable Long id) {
         return ResponseEntity.ok(userService.deactivate(id));
+    }
+
+    @GetMapping("/{id}/full")
+    ResponseEntity<UserWithCardsDto> getByIdWithCards(@PathVariable Long id) {
+        return ResponseEntity.ok(userService.getByIdWithCards(id));
     }
 }
