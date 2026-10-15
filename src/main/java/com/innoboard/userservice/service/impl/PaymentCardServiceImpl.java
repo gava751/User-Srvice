@@ -42,7 +42,7 @@ public class PaymentCardServiceImpl implements PaymentCardService {
         PaymentCardEntity card = cardMapper.toEntity(dto);
         card.setActive(true);
         user.addCard(card);
-        userRepository.save(user);
+        paymentCardRepository.save(card);
 
         return cardMapper.toDto(card);
     }
@@ -80,7 +80,7 @@ public class PaymentCardServiceImpl implements PaymentCardService {
     @Transactional
     @CacheEvict(cacheNames = RedisCacheConfig.USERS_WITH_CARDS, key = "#userId")
     public PaymentCardDto deactivate(Long userId, Long id) {
-        return setActive(userId, id, true);
+        return setActive(userId, id, false);
     }
 
     private PaymentCardDto setActive(Long userId, Long id, boolean active) {
