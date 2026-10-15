@@ -1,6 +1,7 @@
 package com.innoboard.userservice.service;
 
 import com.innoboard.userservice.dto.UserDto;
+import com.innoboard.userservice.dto.UserWithCardsDto;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -17,4 +18,6 @@ public interface UserService {
     UserDto activate(Long id);
 
     UserDto deactivate(Long id);
+
+    UserWithCardsDto getByIdWithCards(Long id);
 }
