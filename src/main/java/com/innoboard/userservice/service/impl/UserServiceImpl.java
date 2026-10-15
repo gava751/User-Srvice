@@ -53,20 +53,20 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public void activate(Long id) {
-        setActive(id, true);
+    public UserDto activate(Long id) {
+        return setActive(id, true);
     }
 
     @Override
     @Transactional
-    public void deactivate(Long id) {
-        setActive(id, false);
+    public UserDto deactivate(Long id) {
+        return setActive(id, false);
     }
 
-    private void setActive(Long id, Boolean active) {
+    private UserDto setActive(Long id, boolean active) {
         UserEntity entity = findUserOrThrow(id);
         entity.setActive(active);
-        userRepository.save(entity);
+        return userMapper.toDto(userRepository.save(entity));
     }
 
     private UserEntity findUserOrThrow(Long id) {
