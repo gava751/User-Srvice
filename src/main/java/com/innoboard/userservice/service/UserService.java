@@ -20,4 +20,6 @@ public interface UserService {
     UserDto deactivate(Long id);
 
     UserWithCardsDto getByIdWithCards(Long id);
+
+    void delete(Long id);
 }

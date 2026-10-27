@@ -18,6 +18,8 @@ public interface PaymentCardRepository extends JpaRepository<PaymentCardEntity, 
 
     boolean existsByIdAndUserId(Long id, Long userId);
 
+    void deleteByUserId(Long userId);
+
     @Query("select c from PaymentCardEntity c where c.user.id = :userId and c.active = :active")
     List<PaymentCardEntity> findAllByUserIdAndActive(@Param("userId") Long userId,
                                                      @Param("active") boolean active);
