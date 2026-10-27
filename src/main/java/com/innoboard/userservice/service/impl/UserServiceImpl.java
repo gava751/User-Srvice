@@ -79,11 +79,22 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional(readOnly = true)
-    @Cacheable(cacheNames = RedisCacheConfig.USERS_WITH_CARDS, key = "#id",unless = "#result=null")
+    @Cacheable(cacheNames = RedisCacheConfig.USERS_WITH_CARDS, key = "#id", unless = "#result == null")
     public UserWithCardsDto getByIdWithCards(Long id) {
         UserEntity user = findUserOrThrow(id);
         List<PaymentCardDto> cards = cardMapper.toDtoList(paymentCardRepository.findByUserId(id));
         return new UserWithCardsDto(userMapper.toDto(user), cards);
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(cacheNames = RedisCacheConfig.USERS_WITH_CARDS, key = "#id")
+    public void delete(Long id) {
+        if (!userRepository.existsById(id)) {
+            throw new UserPrincipalNotFoundException(id);
+        }
+        paymentCardRepository.deleteByUserId(id);
+        userRepository.deleteById(id);
     }
 
     private UserDto setActive(Long id, boolean active) {

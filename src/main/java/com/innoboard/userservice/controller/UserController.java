@@ -57,4 +57,10 @@ public class UserController {
     ResponseEntity<UserWithCardsDto> getByIdWithCards(@PathVariable Long id) {
         return ResponseEntity.ok(userService.getByIdWithCards(id));
     }
+
+    @DeleteMapping("/{id}")
+    ResponseEntity<Void> delete(@PathVariable Long id) {
+        userService.delete(id);
+        return ResponseEntity.noContent().build();
+    }
 }
