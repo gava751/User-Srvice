@@ -9,18 +9,18 @@ services:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      DB_USERNAME: user_service
-      DB_PASSWORD: user_service
+      DB_USERNAME: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "8080:8080"
+      - "8081:8081"
 
   postgres:
     image: postgres:18-alpine
     container_name: user-service-postgres
     environment:
-      POSTGRES_USER: user_service
-      POSTGRES_PASSWORD: user_service
-      POSTGRES_DB: user_service
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is not set}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is not set}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is not set}
     ports:
       - "5432:5432"
     volumes:

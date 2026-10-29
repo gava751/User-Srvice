@@ -9,17 +9,13 @@ public interface UserService {
 
     UserDto create(UserDto dto);
 
-    UserDto getById(Long id);
+    UserWithCardsDto getById(Long id);
 
     Page<UserDto> getAll(String name, String surname, Pageable pageable);
 
     UserDto update(Long id, UserDto dto);
 
-    UserDto activate(Long id);
-
-    UserDto deactivate(Long id);
-
-    UserWithCardsDto getByIdWithCards(Long id);
+    UserDto updateStatus(Long id, boolean active);
 
     void delete(Long id);
 }

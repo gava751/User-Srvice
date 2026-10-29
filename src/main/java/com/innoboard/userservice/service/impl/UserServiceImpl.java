@@ -5,7 +5,8 @@ import com.innoboard.userservice.domain.UserEntity;
 import com.innoboard.userservice.dto.PaymentCardDto;
 import com.innoboard.userservice.dto.UserDto;
 import com.innoboard.userservice.dto.UserWithCardsDto;
-import com.innoboard.userservice.exception.UserPrincipalNotFoundException;
+import com.innoboard.userservice.exception.EmailAlreadyExistsException;
+import com.innoboard.userservice.exception.UserNotFoundException;
 import com.innoboard.userservice.mapper.PaymentCardMapper;
 import com.innoboard.userservice.mapper.UserMapper;
 import com.innoboard.userservice.repository.PaymentCardRepository;
@@ -21,6 +22,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 
 @Service
@@ -35,21 +37,27 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public UserDto create(UserDto dto) {
-        UserEntity entity=userMapper.toEntity(dto);
-        entity.setActive(true);
+        if (userRepository.existsByEmailIgnoreCase(dto.email())) {
+            throw new EmailAlreadyExistsException(dto.email());
+        }
+        UserEntity entity = userMapper.toEntity(dto);
+        entity.setActive(true);   // состояние решает сервис, не клиент
         return userMapper.toDto(userRepository.save(entity));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public UserDto getById(Long id) {
-        return userMapper.toDto(findUserOrThrow(id));
+    @Cacheable(cacheNames = RedisCacheConfig.USERS_WITH_CARDS, key = "#id")
+    public UserWithCardsDto getById(Long id) {
+        UserEntity user = findUserOrThrow(id);
+        List<PaymentCardDto> cards = cardMapper.toDtoList(paymentCardRepository.findByUserId(id));
+        return new UserWithCardsDto(userMapper.toDto(user), cards);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Page<UserDto> getAll (String name, String surname, Pageable pageable) {
-        Specification<UserEntity> spec= UserSpecifications.hasName(name)
+    public Page<UserDto> getAll(String name, String surname, Pageable pageable) {
+        Specification<UserEntity> spec = UserSpecifications.hasName(name)
                 .and(UserSpecifications.hasSurname(surname));
         return userRepository.findAll(spec, pageable).map(userMapper::toDto);
     }
@@ -58,6 +66,9 @@ public class UserServiceImpl implements UserService {
     @Transactional
     @CacheEvict(cacheNames = RedisCacheConfig.USERS_WITH_CARDS, key = "#id")
     public UserDto update(Long id, UserDto dto) {
+        if (userRepository.existsByEmailIgnoreCaseAndIdNot(dto.email(), id)) {
+            throw new EmailAlreadyExistsException(dto.email());
+        }
         UserEntity entity = findUserOrThrow(id);
         userMapper.updateEntityFromDto(dto, entity);
         return userMapper.toDto(userRepository.save(entity));
@@ -66,45 +77,24 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     @CacheEvict(cacheNames = RedisCacheConfig.USERS_WITH_CARDS, key = "#id")
-    public UserDto activate(Long id) {
-        return setActive(id, true);
-    }
-
-    @Override
-    @Transactional
-    @CacheEvict(cacheNames = RedisCacheConfig.USERS_WITH_CARDS, key = "#id")
-    public UserDto deactivate(Long id) {
-        return setActive(id, false);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    @Cacheable(cacheNames = RedisCacheConfig.USERS_WITH_CARDS, key = "#id", unless = "#result == null")
-    public UserWithCardsDto getByIdWithCards(Long id) {
-        UserEntity user = findUserOrThrow(id);
-        List<PaymentCardDto> cards = cardMapper.toDtoList(paymentCardRepository.findByUserId(id));
-        return new UserWithCardsDto(userMapper.toDto(user), cards);
+    public UserDto updateStatus(Long id, boolean active) {
+        int updated = userRepository.updateActiveStatus(id, active, Instant.now());
+        if (updated == 0) {
+            throw new UserNotFoundException(id);
+        }
+        return userMapper.toDto(userRepository.findById(id).orElseThrow());
     }
 
     @Override
     @Transactional
     @CacheEvict(cacheNames = RedisCacheConfig.USERS_WITH_CARDS, key = "#id")
     public void delete(Long id) {
-        if (!userRepository.existsById(id)) {
-            throw new UserPrincipalNotFoundException(id);
-        }
-        paymentCardRepository.deleteByUserId(id);
-        userRepository.deleteById(id);
-    }
-
-    private UserDto setActive(Long id, boolean active) {
-        UserEntity entity = findUserOrThrow(id);
-        entity.setActive(active);
-        return userMapper.toDto(userRepository.save(entity));
+        UserEntity user = findUserOrThrow(id);
+        userRepository.delete(user);
     }
 
     private UserEntity findUserOrThrow(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(()->new UserPrincipalNotFoundException(id));
+                .orElseThrow(() -> new UserNotFoundException(id));
     }
 }

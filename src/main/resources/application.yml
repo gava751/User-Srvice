@@ -7,7 +7,7 @@ spring:
 
   datasource:
     username: ${DB_USERNAME:user_service}
-    password: ${DB_PASSWORD:user_service}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -22,7 +22,7 @@ spring:
     change-log: classpath:db/changelog/master.yaml
 
 server:
-  port: ${SERVER_PORT:8080}
+  port: ${SERVER_PORT:8081}
 
 management:
   endpoints:

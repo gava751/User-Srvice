@@ -23,6 +23,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.time.LocalDate;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -68,10 +69,10 @@ class PaymentCardFlowIntegrationTest {
         });
     }
 
-    private long createUser() throws Exception {
+    private long createUser(String email) throws Exception {
         UserDto dto = new UserDto(null, "Ivan", "Ivanov",
-                LocalDate.of(1990, 1, 1), "ivan@example.com", true);
-        String created = mockMvc.perform(post("/users")
+                LocalDate.of(1990, 1, 1), email, true);
+        String created = mockMvc.perform(post("/api/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isCreated())
@@ -86,7 +87,7 @@ class PaymentCardFlowIntegrationTest {
     }
 
     private long createCard(long userId, String number) throws Exception {
-        String created = mockMvc.perform(post("/users/{userId}/cards", userId)
+        String created = mockMvc.perform(post("/api/users/{userId}/cards", userId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(cardJson(number)))
                 .andExpect(status().isCreated())
@@ -95,61 +96,108 @@ class PaymentCardFlowIntegrationTest {
     }
 
     @Test
-    @DisplayName("card lifecycle: create -> list -> get -> update -> deactivate")
+    @DisplayName("card lifecycle: create -> list -> get by flat route -> update -> status")
     void fullCardLifecycle() throws Exception {
-        long userId = createUser();
+        long userId = createUser("ivan@example.com");
         long cardId = createCard(userId, "4111111111111111");
 
-        mockMvc.perform(get("/users/{userId}/cards", userId))
+        mockMvc.perform(get("/api/users/{userId}/cards", userId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].number").value("4111111111111111"))
                 .andExpect(jsonPath("$[0].userId").value((int) userId));
 
-        mockMvc.perform(get("/users/{userId}/cards/{id}", userId, cardId))
+        mockMvc.perform(get("/api/cards/{id}", cardId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.holder").value("IVAN IVANOV"));
 
         PaymentCardDto update = new PaymentCardDto(null, null, "4111111111111111",
                 "PETR IVANOV", LocalDate.of(2031, 6, 30), true);
-        mockMvc.perform(put("/users/{userId}/cards/{id}", userId, cardId)
+        mockMvc.perform(put("/api/cards/{id}", cardId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(update)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.holder").value("PETR IVANOV"));
 
-        mockMvc.perform(patch("/users/{userId}/cards/{id}/deactivate", userId, cardId))
+        mockMvc.perform(patch("/api/cards/{id}/status", cardId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"active\": false}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.active").value(false));
     }
 
     @Test
-    @DisplayName("card of another user looks like missing -> 404 (ownership)")
-    void foreignCardReturns404() throws Exception {
-        long userId = createUser();
-        long cardId = createCard(userId, "4111111111111111");
+    @DisplayName("duplicate card number -> 409")
+    void duplicateCardNumberReturns409() throws Exception {
+        long userId = createUser("ivan@example.com");
+        createCard(userId, "4111111111111111");
 
-        long otherUserId = createUser2();
-        mockMvc.perform(get("/users/{userId}/cards/{id}", otherUserId, cardId))
-                .andExpect(status().isNotFound());
-    }
-
-    private long createUser2() throws Exception {
-        UserDto dto = new UserDto(null, "Petr", "Petrov",
-                LocalDate.of(1985, 5, 5), "petr@example.com", true);
-        String created = mockMvc.perform(post("/users")
+        mockMvc.perform(post("/api/users/{userId}/cards", userId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(dto)))
-                .andExpect(status().isCreated())
-                .andReturn().getResponse().getContentAsString();
-        return objectMapper.readTree(created).get("id").asLong();
+                        .content(cardJson("4111111111111111")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").exists());
     }
 
     @Test
     @DisplayName("card for missing user -> 404")
     void cardForMissingUserReturns404() throws Exception {
-        mockMvc.perform(post("/users/{userId}/cards", 9999L)
+        mockMvc.perform(post("/api/users/{userId}/cards", 9999L)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(cardJson("4111111111111111")))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("cards of missing user -> 404 (not an empty list)")
+    void cardsOfMissingUserReturn404() throws Exception {
+        mockMvc.perform(get("/api/users/{userId}/cards", 9999L))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("card limit counts only ACTIVE cards (deactivate -> add -> reactivate = 409)")
+    void limitCountsOnlyActiveCards() throws Exception {
+        long userId = createUser("ivan@example.com");
+        long cardId1 = 0;
+
+        for (int i = 0; i < 5; i++) {
+            long id = createCard(userId, "411111111111111" + i);
+            if (i == 0) {
+                cardId1 = id;
+            }
+        }
+
+        mockMvc.perform(post("/api/users/{userId}/cards", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cardJson("4222222222221119")))
+                .andExpect(status().isConflict());
+
+        mockMvc.perform(patch("/api/cards/{id}/status", cardId1)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"active\": false}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/users/{userId}/cards", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cardJson("4222222222221119")))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(patch("/api/cards/{id}/status", cardId1)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"active\": true}"))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    @DisplayName("DELETE card -> 204, then card is gone")
+    void deleteCardReturns204AndRemovesCard() throws Exception {
+        long userId = createUser("ivan@example.com");
+        long cardId = createCard(userId, "4111111111111111");
+
+        mockMvc.perform(delete("/api/cards/{id}", cardId))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/cards/{id}", cardId))
                 .andExpect(status().isNotFound());
     }
 }

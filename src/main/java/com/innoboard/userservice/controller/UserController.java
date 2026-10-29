@@ -1,5 +1,6 @@
 package com.innoboard.userservice.controller;
 
+import com.innoboard.userservice.dto.UpdateStatusRequest;
 import com.innoboard.userservice.dto.UserDto;
 import com.innoboard.userservice.dto.UserWithCardsDto;
 import com.innoboard.userservice.service.UserService;
@@ -13,7 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/users")
+@RequestMapping("/api/users")
 @RequiredArgsConstructor
 public class UserController {
 
@@ -25,7 +26,7 @@ public class UserController {
     }
 
     @GetMapping("/{id}")
-    ResponseEntity<UserDto> getById(@PathVariable Long id) {
+    ResponseEntity<UserWithCardsDto> getById(@PathVariable Long id) {
         return ResponseEntity.ok(userService.getById(id));
     }
 
@@ -33,7 +34,7 @@ public class UserController {
     ResponseEntity<Page<UserDto>> getAll(
             @RequestParam(required = false) String name,
             @RequestParam(required = false) String surname,
-            @PageableDefault(size=10,sort = "id") Pageable pageable
+            @PageableDefault(size = 10, sort = "id") Pageable pageable
     ) {
         return ResponseEntity.ok(userService.getAll(name, surname, pageable));
     }
@@ -43,19 +44,10 @@ public class UserController {
         return ResponseEntity.ok(userService.update(id, userDto));
     }
 
-    @PatchMapping("/{id}/activate")
-    ResponseEntity<UserDto> activate(@PathVariable Long id) {
-        return ResponseEntity.ok(userService.activate(id));
-    }
-
-    @PatchMapping("/{id}/deactivate")
-    ResponseEntity<UserDto> deactivate(@PathVariable Long id) {
-        return ResponseEntity.ok(userService.deactivate(id));
-    }
-
-    @GetMapping("/{id}/full")
-    ResponseEntity<UserWithCardsDto> getByIdWithCards(@PathVariable Long id) {
-        return ResponseEntity.ok(userService.getByIdWithCards(id));
+    @PatchMapping("/{id}/status")
+    ResponseEntity<UserDto> updateStatus(@PathVariable Long id,
+                                         @Valid @RequestBody UpdateStatusRequest request) {
+        return ResponseEntity.ok(userService.updateStatus(id, request.active()));
     }
 
     @DeleteMapping("/{id}")

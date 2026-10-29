@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/users/{userId}/cards")
+@RequestMapping("/api/users/{userId}/cards")
 @RequiredArgsConstructor
 public class PaymentCardController {
 
@@ -19,34 +19,12 @@ public class PaymentCardController {
 
     @PostMapping
     ResponseEntity<PaymentCardDto> create(@PathVariable Long userId,
-                                          @Valid @RequestBody PaymentCardDto dto){
+                                          @Valid @RequestBody PaymentCardDto dto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(paymentCardService.create(userId, dto));
     }
 
-    @GetMapping("/{id}")
-    ResponseEntity<PaymentCardDto> getById(@PathVariable Long userId, @PathVariable Long id){
-        return ResponseEntity.ok(paymentCardService.getById(userId, id));
-    }
-
     @GetMapping
-    ResponseEntity<List<PaymentCardDto>> getAllByUserId(@PathVariable Long userId){
+    ResponseEntity<List<PaymentCardDto>> getAllByUserId(@PathVariable Long userId) {
         return ResponseEntity.ok(paymentCardService.getAllByUserId(userId));
-    }
-
-    @PatchMapping("/{id}/activate")
-    ResponseEntity<PaymentCardDto> activate(@PathVariable Long userId, @PathVariable Long id){
-        return ResponseEntity.ok(paymentCardService.activate(userId, id));
-    }
-
-    @PatchMapping("/{id}/deactivate")
-    ResponseEntity<PaymentCardDto> deactivate(@PathVariable Long userId, @PathVariable Long id){
-        return ResponseEntity.ok(paymentCardService.deactivate(userId, id));
-    }
-
-    @PutMapping("/{id}")
-    ResponseEntity<PaymentCardDto> update(@PathVariable Long userId,
-                                          @PathVariable Long id,
-                                          @Valid @RequestBody PaymentCardDto dto){
-        return ResponseEntity.ok(paymentCardService.update(userId, id, dto));
     }
 }

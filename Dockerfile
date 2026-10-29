@@ -25,6 +25,6 @@ COPY --from=layers /app/extracted/application/ ./
 
 ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75.0"
 
-EXPOSE 8080
+EXPOSE 8081
 
 ENTRYPOINT ["java", "org.springframework.boot.loader.launch.JarLauncher"]

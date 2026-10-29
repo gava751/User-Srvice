@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="003-normalize-users-email-index" author="gava751">
+        <dropIndex indexName="idx_users_email" tableName="users"/>
+
+        <createIndex indexName="idx_users_email" tableName="users" unique="true">
+            <column name="lower(email)"/>
+        </createIndex>
+
+        <rollback>
+            <dropIndex indexName="idx_users_email" tableName="users"/>
+            <createIndex indexName="idx_users_email" tableName="users" unique="true">
+                <column name="email"/>
+            </createIndex>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>
