@@ -15,14 +15,15 @@ Spring Boot microservice managing users and their payment cards.
 All database and server settings are provided via environment variables
 (with local-run defaults):
 
-| Variable      | Default                                            | Description          |
+| Variable      | Default (local)                                    | Description          |
 |---------------|----------------------------------------------------|----------------------|
 | `DB_URL`      | `jdbc:postgresql://localhost:5432/user_service`    | JDBC URL             |
 | `DB_USERNAME` | `user_service`                                     | DB user              |
-| `DB_PASSWORD` | `user_service`                                     | DB password          |
-| `SERVER_PORT` | `8080`                                             | HTTP port            |
+| `DB_PASSWORD` | — (без дефолта, обязательно)                       | DB password          |
+| `SERVER_PORT` | `8081` (8080 зарезервирован под API Gateway)       | HTTP port            |
 | `REDIS_HOST`  | `localhost`                                        | Redis host           |
 | `REDIS_PORT`  | `6379`                                             | Redis port           |
+
 
 The database schema is created and versioned exclusively by Liquibase
 (`src/main/resources/db/changelog`), so Hibernate runs with

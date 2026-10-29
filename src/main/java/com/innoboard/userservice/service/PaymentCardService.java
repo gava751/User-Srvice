@@ -6,15 +6,15 @@ import java.util.List;
 
 public interface PaymentCardService {
 
-    PaymentCardDto create (Long userId, PaymentCardDto dto);
+    PaymentCardDto create(Long userId, PaymentCardDto dto);
 
-    PaymentCardDto getById(Long userId, Long id);
+    PaymentCardDto getById(Long id);
 
-    PaymentCardDto update(Long userId, Long id, PaymentCardDto dto);
+    PaymentCardDto update(Long id, PaymentCardDto dto);
 
     List<PaymentCardDto> getAllByUserId(Long userId);
 
-    PaymentCardDto activate(Long userId, Long id);
+    PaymentCardDto updateStatus(Long id, boolean active);
 
-    PaymentCardDto deactivate(Long userId, Long id);
+    void delete(Long id);
 }

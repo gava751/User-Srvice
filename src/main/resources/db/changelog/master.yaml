@@ -3,3 +3,5 @@ databaseChangeLog:
       file: db/changelog/changes/001-create-users-table.xml
   - include:
       file: db/changelog/changes/002-create-payment-cards-table.xml
+  - include:
+      file: db/changelog/changes/003-normalize-users-email-index.xml
