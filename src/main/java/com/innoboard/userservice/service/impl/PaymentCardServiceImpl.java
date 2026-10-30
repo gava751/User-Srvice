@@ -3,7 +3,8 @@ package com.innoboard.userservice.service.impl;
 import com.innoboard.userservice.config.RedisCacheConfig;
 import com.innoboard.userservice.domain.PaymentCardEntity;
 import com.innoboard.userservice.domain.UserEntity;
-import com.innoboard.userservice.dto.PaymentCardDto;
+import com.innoboard.userservice.dto.CardRequest;
+import com.innoboard.userservice.dto.CardResponse;
 import com.innoboard.userservice.exception.CardLimitExceededException;
 import com.innoboard.userservice.exception.CardNotFoundException;
 import com.innoboard.userservice.exception.CardNumberAlreadyExistsException;
@@ -15,7 +16,6 @@ import com.innoboard.userservice.service.PaymentCardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,57 +35,57 @@ public class PaymentCardServiceImpl implements PaymentCardService {
 
     @Override
     @Transactional
-    @CacheEvict(cacheNames = RedisCacheConfig.USERS_WITH_CARDS, key = "#userId")
-    public PaymentCardDto create(Long userId, PaymentCardDto dto) {
+    public CardResponse create(Long userId, CardRequest request) {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
 
-        if (paymentCardRepository.existsByNumber(dto.number())) {
-            throw new CardNumberAlreadyExistsException(dto.number());
+        if (paymentCardRepository.existsByNumber(request.number())) {
+            throw new CardNumberAlreadyExistsException(request.number());
         }
         if (paymentCardRepository.countByUserIdAndActiveTrue(userId) >= MAX_CARDS_PER_USER) {
             throw new CardLimitExceededException(userId);
         }
 
-        PaymentCardEntity card = cardMapper.toEntity(dto);
+        PaymentCardEntity card = cardMapper.toEntity(request);
         card.setActive(true);
         user.addCard(card);
         paymentCardRepository.save(card);
+        evictOwnerCache(userId);
 
-        return cardMapper.toDto(card);
+        return cardMapper.toResponse(card);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public PaymentCardDto getById(Long id) {
-        return cardMapper.toDto(findCardOrThrow(id));
+    public CardResponse getById(Long id) {
+        return cardMapper.toResponse(findCardOrThrow(id));
     }
 
     @Override
     @Transactional
-    public PaymentCardDto update(Long id, PaymentCardDto dto) {
+    public CardResponse update(Long id, CardRequest request) {
         PaymentCardEntity card = findCardOrThrow(id);
-        if (paymentCardRepository.existsByNumberAndIdNot(dto.number(), id)) {
-            throw new CardNumberAlreadyExistsException(dto.number());
+        if (paymentCardRepository.existsByNumberAndIdNot(request.number(), id)) {
+            throw new CardNumberAlreadyExistsException(request.number());
         }
-        cardMapper.updateEntityFromDto(dto, card);
-        PaymentCardDto result = cardMapper.toDto(paymentCardRepository.save(card));
+        cardMapper.updateEntityFromDto(request, card);
+        CardResponse result = cardMapper.toResponse(paymentCardRepository.save(card));
         evictOwnerCache(card.getUser().getId());
         return result;
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<PaymentCardDto> getAllByUserId(Long userId) {
+    public List<CardResponse> getAllByUserId(Long userId) {
         if (!userRepository.existsById(userId)) {
             throw new UserNotFoundException(userId);
         }
-        return cardMapper.toDtoList(paymentCardRepository.findByUserId(userId));
+        return cardMapper.toResponseList(paymentCardRepository.findByUserId(userId));
     }
 
     @Override
     @Transactional
-    public PaymentCardDto updateStatus(Long id, boolean active) {
+    public CardResponse updateStatus(Long id, boolean active) {
         PaymentCardEntity card = findCardOrThrow(id);
         if (active && !card.getActive()
                 && paymentCardRepository.countByUserIdAndActiveTrue(card.getUser().getId()) >= MAX_CARDS_PER_USER) {
@@ -95,7 +95,7 @@ public class PaymentCardServiceImpl implements PaymentCardService {
         if (updated == 0) {
             throw new CardNotFoundException(id);
         }
-        PaymentCardDto result = cardMapper.toDto(paymentCardRepository.findById(id)
+        CardResponse result = cardMapper.toResponse(paymentCardRepository.findById(id)
                 .orElseThrow(() -> new CardNotFoundException(id)));
         evictOwnerCache(card.getUser().getId());
         return result;

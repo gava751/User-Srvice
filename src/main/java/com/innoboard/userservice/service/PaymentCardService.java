@@ -1,20 +1,21 @@
 package com.innoboard.userservice.service;
 
-import com.innoboard.userservice.dto.PaymentCardDto;
+import com.innoboard.userservice.dto.CardRequest;
+import com.innoboard.userservice.dto.CardResponse;
 
 import java.util.List;
 
 public interface PaymentCardService {
 
-    PaymentCardDto create(Long userId, PaymentCardDto dto);
+    CardResponse create(Long userId, CardRequest request);
 
-    PaymentCardDto getById(Long id);
+    CardResponse getById(Long id);
 
-    PaymentCardDto update(Long id, PaymentCardDto dto);
+    CardResponse update(Long id, CardRequest request);
 
-    List<PaymentCardDto> getAllByUserId(Long userId);
+    List<CardResponse> getAllByUserId(Long userId);
 
-    PaymentCardDto updateStatus(Long id, boolean active);
+    CardResponse updateStatus(Long id, boolean active);
 
     void delete(Long id);
 }

@@ -7,8 +7,7 @@ import jakarta.validation.constraints.Past;
 
 import java.time.LocalDate;
 
-public record UserDto (
-        Long id,
+public record CreateUserRequest(
 
         @NotBlank(message = "Name must not be blank")
         String name,
@@ -22,9 +21,6 @@ public record UserDto (
 
         @NotBlank(message = "Email must not be blank")
         @Email(message = "Email must be valid")
-        String email,
-
-        @NotNull(message = "Active flag is required")
-        Boolean active
-)
-{}
+        String email
+) {
+}

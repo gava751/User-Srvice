@@ -13,9 +13,11 @@ import java.time.Instant;
 @Repository
 public interface UserRepository extends JpaRepository<UserEntity, Long>, JpaSpecificationExecutor<UserEntity> {
 
-    boolean existsByEmailIgnoreCase(String email);
+    @Query("select count(u) > 0 from UserEntity u where lower(u.email) = lower(:email)")
+    boolean existsByEmailNormalized(@Param("email") String email);
 
-    boolean existsByEmailIgnoreCaseAndIdNot(String email, Long id);
+    @Query("select count(u) > 0 from UserEntity u where lower(u.email) = lower(:email) and u.id <> :id")
+    boolean existsByEmailNormalizedAndIdNot(@Param("email") String email, @Param("id") Long id);
 
     @Modifying(clearAutomatically = true)
     @Query("update UserEntity u set u.active = :active, u.updatedAt = :now where u.id = :id")

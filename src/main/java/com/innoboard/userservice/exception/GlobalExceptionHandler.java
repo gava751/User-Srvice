@@ -50,7 +50,8 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(CardNumberAlreadyExistsException.class)
-    ResponseEntity<ErrorResponse> handleCardNumberExists(CardNumberAlreadyExistsException ex, HttpServletRequest request) {
+    ResponseEntity<ErrorResponse> handleCardNumberExists(CardNumberAlreadyExistsException ex,
+                                                         HttpServletRequest request) {
         return ResponseEntity
                 .status(HttpStatus.CONFLICT)
                 .body(ErrorResponse.of(HttpStatus.CONFLICT, ex.getMessage(), request.getRequestURI()));
@@ -58,7 +59,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     ResponseEntity<ErrorResponse> handleDataIntegrity(DataIntegrityViolationException ex, HttpServletRequest request) {
-        log.warn("Data integrity violation on {}: {}", request.getRequestURI(), ex.getMostSpecificCause().getMessage());
+        log.warn("Data integrity violation on {}: {}",
+                request.getRequestURI(), ex.getMostSpecificCause().getMessage());
         return ResponseEntity
                 .status(HttpStatus.CONFLICT)
                 .body(ErrorResponse.of(HttpStatus.CONFLICT, "Resource already exists or violates a constraint",

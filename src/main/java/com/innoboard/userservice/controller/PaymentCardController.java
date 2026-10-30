@@ -1,6 +1,7 @@
 package com.innoboard.userservice.controller;
 
-import com.innoboard.userservice.dto.PaymentCardDto;
+import com.innoboard.userservice.dto.CardRequest;
+import com.innoboard.userservice.dto.CardResponse;
 import com.innoboard.userservice.service.PaymentCardService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,13 +19,13 @@ public class PaymentCardController {
     private final PaymentCardService paymentCardService;
 
     @PostMapping
-    ResponseEntity<PaymentCardDto> create(@PathVariable Long userId,
-                                          @Valid @RequestBody PaymentCardDto dto) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(paymentCardService.create(userId, dto));
+    ResponseEntity<CardResponse> create(@PathVariable Long userId,
+                                        @Valid @RequestBody CardRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(paymentCardService.create(userId, request));
     }
 
     @GetMapping
-    ResponseEntity<List<PaymentCardDto>> getAllByUserId(@PathVariable Long userId) {
+    ResponseEntity<List<CardResponse>> getAllByUserId(@PathVariable Long userId) {
         return ResponseEntity.ok(paymentCardService.getAllByUserId(userId));
     }
 }
