@@ -1,27 +1,8 @@
 package com.innoboard.userservice.integration;
 
-import tools.jackson.databind.ObjectMapper;
-import com.innoboard.userservice.dto.PaymentCardDto;
-import com.innoboard.userservice.dto.UserDto;
-import com.innoboard.userservice.repository.PaymentCardRepository;
-import com.innoboard.userservice.repository.UserRepository;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.data.redis.core.RedisCallback;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-
-import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -32,73 +13,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@Testcontainers
-@SpringBootTest
-@AutoConfigureMockMvc
-class UserFlowIntegrationTest {
-
-    @Container
-    @ServiceConnection
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:18-alpine");
-
-    @Container
-    @ServiceConnection
-    static GenericContainer<?> redis = new GenericContainer<>("redis:7").withExposedPorts(6379);
-
-    @Autowired
-    private MockMvc mockMvc;
-
-    @Autowired
-    private ObjectMapper objectMapper;
-
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private PaymentCardRepository paymentCardRepository;
-
-    @Autowired
-    private StringRedisTemplate redisTemplate;
-
-    @BeforeEach
-    void cleanState() {
-        paymentCardRepository.deleteAll();
-        userRepository.deleteAll();
-        redisTemplate.execute((RedisCallback<Object>) connection -> {
-            connection.serverCommands().flushAll();
-            return null;
-        });
-    }
-
-    private String userJson(String email) throws Exception {
-        UserDto dto = new UserDto(null, "Ivan", "Ivanov",
-                LocalDate.of(1990, 1, 1), email, true);
-        return objectMapper.writeValueAsString(dto);
-    }
-
-    private long createUser(String email) throws Exception {
-        String created = mockMvc.perform(post("/api/users")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(userJson(email)))
-                .andExpect(status().isCreated())
-                .andReturn().getResponse().getContentAsString();
-        return objectMapper.readTree(created).get("id").asLong();
-    }
-
-    private String cardJson(String number) throws Exception {
-        PaymentCardDto card = new PaymentCardDto(null, null, number,
-                "IVAN IVANOV", LocalDate.of(2030, 12, 31), true);
-        return objectMapper.writeValueAsString(card);
-    }
-
-    private long createCard(long userId, String number) throws Exception {
-        String created = mockMvc.perform(post("/api/users/{userId}/cards", userId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(cardJson(number)))
-                .andExpect(status().isCreated())
-                .andReturn().getResponse().getContentAsString();
-        return objectMapper.readTree(created).get("id").asLong();
-    }
+class UserFlowIntegrationTest extends IntegrationTestBase {
 
     @Test
     @DisplayName("full lifecycle: create -> get (aggregate) -> update -> status -> list")
@@ -120,7 +35,7 @@ class UserFlowIntegrationTest {
 
         mockMvc.perform(patch("/api/users/{id}/status", id)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"active\": false}"))
+                        .content(statusJson(false)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.active").value(false));
 
@@ -200,7 +115,7 @@ class UserFlowIntegrationTest {
 
         mockMvc.perform(get("/api/users/{id}", id))
                 .andExpect(status().isOk());
-        assertThat(redisTemplate.hasKey("usersWithCards::" + id)).isTrue();
+        assertThat(redisTemplate.hasKey(cacheKey(id))).isTrue();
 
         mockMvc.perform(get("/api/users/{id}", id))
                 .andExpect(status().isOk());
@@ -210,6 +125,28 @@ class UserFlowIntegrationTest {
                         .content(userJson("petr@example.com")))
                 .andExpect(status().isOk());
 
-        assertThat(redisTemplate.hasKey("usersWithCards::" + id)).isFalse();
+        assertThat(redisTemplate.hasKey(cacheKey(id))).isFalse();
+    }
+
+    @Test
+    @DisplayName("cache eviction: status change and delete also remove the entry")
+    void cacheEvictedOnStatusChangeAndDelete() throws Exception {
+        long id = createUser("ivan@example.com");
+
+        mockMvc.perform(get("/api/users/{id}", id))
+                .andExpect(status().isOk());
+        assertThat(redisTemplate.hasKey(cacheKey(id))).isTrue();
+
+        mockMvc.perform(patch("/api/users/{id}/status", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(statusJson(false)))
+                .andExpect(status().isOk());
+        assertThat(redisTemplate.hasKey(cacheKey(id))).isFalse();
+
+        mockMvc.perform(get("/api/users/{id}", id))
+                .andExpect(status().isOk());
+        mockMvc.perform(delete("/api/users/{id}", id))
+                .andExpect(status().isNoContent());
+        assertThat(redisTemplate.hasKey(cacheKey(id))).isFalse();
     }
 }

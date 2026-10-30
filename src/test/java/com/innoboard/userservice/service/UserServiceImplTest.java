@@ -1,9 +1,11 @@
 package com.innoboard.userservice.service;
 
 import com.innoboard.userservice.domain.UserEntity;
-import com.innoboard.userservice.dto.PaymentCardDto;
-import com.innoboard.userservice.dto.UserDto;
-import com.innoboard.userservice.dto.UserWithCardsDto;
+import com.innoboard.userservice.dto.CardResponse;
+import com.innoboard.userservice.dto.CreateUserRequest;
+import com.innoboard.userservice.dto.UpdateUserRequest;
+import com.innoboard.userservice.dto.UserResponse;
+import com.innoboard.userservice.dto.UserWithCardsResponse;
 import com.innoboard.userservice.exception.EmailAlreadyExistsException;
 import com.innoboard.userservice.exception.UserNotFoundException;
 import com.innoboard.userservice.mapper.PaymentCardMapper;
@@ -40,6 +42,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class UserServiceImplTest {
 
+    private static final String EMAIL = "ivan@example.com";
+
     @Mock
     private UserRepository userRepository;
     @Mock
@@ -52,9 +56,16 @@ class UserServiceImplTest {
     @InjectMocks
     private UserServiceImpl userService;
 
-    private UserDto dto(Long id, boolean active) {
-        return new UserDto(id, "Ivan", "Ivanov", LocalDate.of(1990, 1, 1),
-                "ivan@example.com", active);
+    private CreateUserRequest createRequest() {
+        return new CreateUserRequest("Ivan", "Ivanov", LocalDate.of(1990, 1, 1), EMAIL);
+    }
+
+    private UpdateUserRequest updateRequest() {
+        return new UpdateUserRequest("Petr", "Ivanov", LocalDate.of(1990, 1, 1), "petr@example.com");
+    }
+
+    private UserResponse response(Long id, boolean active) {
+        return new UserResponse(id, "Ivan", "Ivanov", LocalDate.of(1990, 1, 1), EMAIL, active);
     }
 
     private UserEntity entity(Long id, boolean active) {
@@ -63,7 +74,7 @@ class UserServiceImplTest {
                 .name("Ivan")
                 .surname("Ivanov")
                 .birthDate(LocalDate.of(1990, 1, 1))
-                .email("ivan@example.com")
+                .email(EMAIL)
                 .active(active)
                 .build();
     }
@@ -73,35 +84,34 @@ class UserServiceImplTest {
     class Create {
 
         @Test
-        @DisplayName("saves entity and returns mapped DTO")
-        void savesAndReturnsDto() {
-            UserDto request = dto(null, true);
+        @DisplayName("saves entity and returns mapped response")
+        void savesAndReturnsResponse() {
+            CreateUserRequest request = createRequest();
             UserEntity entity = entity(null, true);
-            UserDto response = dto(1L, true);
+            UserResponse expected = response(1L, true);
 
-            when(userRepository.existsByEmailIgnoreCase("ivan@example.com")).thenReturn(false);
+            when(userRepository.existsByEmailNormalized(EMAIL)).thenReturn(false);
             when(userMapper.toEntity(request)).thenReturn(entity);
             when(userRepository.save(entity)).thenReturn(entity);
-            when(userMapper.toDto(entity)).thenReturn(response);
+            when(userMapper.toResponse(entity)).thenReturn(expected);
 
-            UserDto result = userService.create(request);
+            UserResponse result = userService.create(request);
 
-            assertThat(result).isEqualTo(response);
+            assertThat(result).isEqualTo(expected);
             verify(userRepository).save(entity);
         }
 
         @Test
         @DisplayName("forces active = true regardless of request")
         void forcesActiveTrue() {
-            UserDto request = dto(null, false);
             UserEntity entity = entity(null, false);
 
-            when(userRepository.existsByEmailIgnoreCase("ivan@example.com")).thenReturn(false);
-            when(userMapper.toEntity(request)).thenReturn(entity);
+            when(userRepository.existsByEmailNormalized(EMAIL)).thenReturn(false);
+            when(userMapper.toEntity(createRequest())).thenReturn(entity);
             when(userRepository.save(entity)).thenReturn(entity);
-            when(userMapper.toDto(entity)).thenReturn(dto(1L, true));
+            when(userMapper.toResponse(entity)).thenReturn(response(1L, true));
 
-            userService.create(request);
+            userService.create(createRequest());
 
             ArgumentCaptor<UserEntity> captor = ArgumentCaptor.forClass(UserEntity.class);
             verify(userRepository).save(captor.capture());
@@ -111,9 +121,9 @@ class UserServiceImplTest {
         @Test
         @DisplayName("throws when email is already taken")
         void throwsWhenEmailExists() {
-            when(userRepository.existsByEmailIgnoreCase("ivan@example.com")).thenReturn(true);
+            when(userRepository.existsByEmailNormalized(EMAIL)).thenReturn(true);
 
-            assertThatThrownBy(() -> userService.create(dto(null, true)))
+            assertThatThrownBy(() -> userService.create(createRequest()))
                     .isInstanceOf(EmailAlreadyExistsException.class);
             verify(userRepository, never()).save(any());
             verifyNoInteractions(userMapper);
@@ -129,14 +139,14 @@ class UserServiceImplTest {
         void returnsAggregate() {
             UserEntity user = entity(1L, true);
             when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-            when(cardMapper.toDtoList(any())).thenReturn(List.of(
-                    new PaymentCardDto(10L, 1L, "4111111111111111", "IVAN IVANOV",
+            when(cardMapper.toResponseList(any())).thenReturn(List.of(
+                    new CardResponse(10L, 1L, "4111111111111111", "IVAN IVANOV",
                             LocalDate.of(2030, 12, 31), true)));
-            when(userMapper.toDto(user)).thenReturn(dto(1L, true));
+            when(userMapper.toResponse(user)).thenReturn(response(1L, true));
 
-            UserWithCardsDto result = userService.getById(1L);
+            UserWithCardsResponse result = userService.getById(1L);
 
-            assertThat(result.user()).isEqualTo(dto(1L, true));
+            assertThat(result.user()).isEqualTo(response(1L, true));
             assertThat(result.cards()).hasSize(1);
         }
 
@@ -176,12 +186,12 @@ class UserServiceImplTest {
         @DisplayName("updates existing entity via mapper and saves it")
         void updatesAndSaves() {
             UserEntity entity = entity(1L, true);
-            UserDto request = dto(1L, true);
+            UpdateUserRequest request = updateRequest();
 
-            when(userRepository.existsByEmailIgnoreCaseAndIdNot("ivan@example.com", 1L)).thenReturn(false);
+            when(userRepository.existsByEmailNormalizedAndIdNot("petr@example.com", 1L)).thenReturn(false);
             when(userRepository.findById(1L)).thenReturn(Optional.of(entity));
             when(userRepository.save(entity)).thenReturn(entity);
-            when(userMapper.toDto(entity)).thenReturn(request);
+            when(userMapper.toResponse(entity)).thenReturn(response(1L, true));
 
             userService.update(1L, request);
 
@@ -192,9 +202,9 @@ class UserServiceImplTest {
         @Test
         @DisplayName("throws when email is taken by another user")
         void throwsWhenEmailTakenByOther() {
-            when(userRepository.existsByEmailIgnoreCaseAndIdNot("ivan@example.com", 1L)).thenReturn(true);
+            when(userRepository.existsByEmailNormalizedAndIdNot("petr@example.com", 1L)).thenReturn(true);
 
-            assertThatThrownBy(() -> userService.update(1L, dto(1L, true)))
+            assertThatThrownBy(() -> userService.update(1L, updateRequest()))
                     .isInstanceOf(EmailAlreadyExistsException.class);
             verify(userRepository, never()).save(any());
             verifyNoInteractions(userMapper);
@@ -203,10 +213,10 @@ class UserServiceImplTest {
         @Test
         @DisplayName("throws when user is missing")
         void throwsWhenMissing() {
-            when(userRepository.existsByEmailIgnoreCaseAndIdNot("ivan@example.com", 42L)).thenReturn(false);
+            when(userRepository.existsByEmailNormalizedAndIdNot("petr@example.com", 42L)).thenReturn(false);
             when(userRepository.findById(42L)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> userService.update(42L, dto(42L, true)))
+            assertThatThrownBy(() -> userService.update(42L, updateRequest()))
                     .isInstanceOf(UserNotFoundException.class);
             verify(userMapper, never()).updateEntityFromDto(any(), any());
         }
@@ -217,11 +227,11 @@ class UserServiceImplTest {
     class UpdateStatus {
 
         @Test
-        @DisplayName("updates status via bulk query and returns fresh DTO")
+        @DisplayName("updates status via bulk query and returns fresh response")
         void updatesStatus() {
             when(userRepository.updateActiveStatus(eq(1L), eq(true), any())).thenReturn(1);
             when(userRepository.findById(1L)).thenReturn(Optional.of(entity(1L, true)));
-            when(userMapper.toDto(any())).thenReturn(dto(1L, true));
+            when(userMapper.toResponse(any())).thenReturn(response(1L, true));
 
             userService.updateStatus(1L, true);
 

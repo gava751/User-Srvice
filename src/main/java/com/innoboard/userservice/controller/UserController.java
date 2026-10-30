@@ -1,8 +1,10 @@
 package com.innoboard.userservice.controller;
 
+import com.innoboard.userservice.dto.CreateUserRequest;
 import com.innoboard.userservice.dto.UpdateStatusRequest;
-import com.innoboard.userservice.dto.UserDto;
-import com.innoboard.userservice.dto.UserWithCardsDto;
+import com.innoboard.userservice.dto.UpdateUserRequest;
+import com.innoboard.userservice.dto.UserResponse;
+import com.innoboard.userservice.dto.UserWithCardsResponse;
 import com.innoboard.userservice.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,17 +23,17 @@ public class UserController {
     private final UserService userService;
 
     @PostMapping
-    ResponseEntity<UserDto> create(@Valid @RequestBody UserDto userDto) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(userService.create(userDto));
+    ResponseEntity<UserResponse> create(@Valid @RequestBody CreateUserRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(userService.create(request));
     }
 
     @GetMapping("/{id}")
-    ResponseEntity<UserWithCardsDto> getById(@PathVariable Long id) {
+    ResponseEntity<UserWithCardsResponse> getById(@PathVariable Long id) {
         return ResponseEntity.ok(userService.getById(id));
     }
 
     @GetMapping
-    ResponseEntity<Page<UserDto>> getAll(
+    ResponseEntity<Page<UserResponse>> getAll(
             @RequestParam(required = false) String name,
             @RequestParam(required = false) String surname,
             @PageableDefault(size = 10, sort = "id") Pageable pageable
@@ -40,13 +42,13 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
-    ResponseEntity<UserDto> update(@PathVariable Long id, @Valid @RequestBody UserDto userDto) {
-        return ResponseEntity.ok(userService.update(id, userDto));
+    ResponseEntity<UserResponse> update(@PathVariable Long id, @Valid @RequestBody UpdateUserRequest request) {
+        return ResponseEntity.ok(userService.update(id, request));
     }
 
     @PatchMapping("/{id}/status")
-    ResponseEntity<UserDto> updateStatus(@PathVariable Long id,
-                                         @Valid @RequestBody UpdateStatusRequest request) {
+    ResponseEntity<UserResponse> updateStatus(@PathVariable Long id,
+                                              @Valid @RequestBody UpdateStatusRequest request) {
         return ResponseEntity.ok(userService.updateStatus(id, request.active()));
     }
 

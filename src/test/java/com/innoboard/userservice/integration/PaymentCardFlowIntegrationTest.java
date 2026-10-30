@@ -1,25 +1,8 @@
 package com.innoboard.userservice.integration;
 
-import com.innoboard.userservice.dto.PaymentCardDto;
-import com.innoboard.userservice.dto.UserDto;
-import com.innoboard.userservice.repository.PaymentCardRepository;
-import com.innoboard.userservice.repository.UserRepository;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.data.redis.core.RedisCallback;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import tools.jackson.databind.ObjectMapper;
 
 import java.time.LocalDate;
 
@@ -31,69 +14,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@Testcontainers
-@SpringBootTest
-@AutoConfigureMockMvc
-class PaymentCardFlowIntegrationTest {
-
-    @Container
-    @ServiceConnection
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:18-alpine");
-
-    @Container
-    @ServiceConnection
-    static GenericContainer<?> redis = new GenericContainer<>("redis:7").withExposedPorts(6379);
-
-    @Autowired
-    private MockMvc mockMvc;
-
-    @Autowired
-    private ObjectMapper objectMapper;
-
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private PaymentCardRepository paymentCardRepository;
-
-    @Autowired
-    private StringRedisTemplate redisTemplate;
-
-    @BeforeEach
-    void cleanState() {
-        paymentCardRepository.deleteAll();
-        userRepository.deleteAll();
-        redisTemplate.execute((RedisCallback<Object>) connection -> {
-            connection.serverCommands().flushAll();
-            return null;
-        });
-    }
-
-    private long createUser(String email) throws Exception {
-        UserDto dto = new UserDto(null, "Ivan", "Ivanov",
-                LocalDate.of(1990, 1, 1), email, true);
-        String created = mockMvc.perform(post("/api/users")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(dto)))
-                .andExpect(status().isCreated())
-                .andReturn().getResponse().getContentAsString();
-        return objectMapper.readTree(created).get("id").asLong();
-    }
-
-    private String cardJson(String number) throws Exception {
-        PaymentCardDto card = new PaymentCardDto(null, null, number,
-                "IVAN IVANOV", LocalDate.of(2030, 12, 31), true);
-        return objectMapper.writeValueAsString(card);
-    }
-
-    private long createCard(long userId, String number) throws Exception {
-        String created = mockMvc.perform(post("/api/users/{userId}/cards", userId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(cardJson(number)))
-                .andExpect(status().isCreated())
-                .andReturn().getResponse().getContentAsString();
-        return objectMapper.readTree(created).get("id").asLong();
-    }
+class PaymentCardFlowIntegrationTest extends IntegrationTestBase {
 
     @Test
     @DisplayName("card lifecycle: create -> list -> get by flat route -> update -> status")
@@ -110,17 +31,15 @@ class PaymentCardFlowIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.holder").value("IVAN IVANOV"));
 
-        PaymentCardDto update = new PaymentCardDto(null, null, "4111111111111111",
-                "PETR IVANOV", LocalDate.of(2031, 6, 30), true);
         mockMvc.perform(put("/api/cards/{id}", cardId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(update)))
+                        .content(cardJson("4111111111111111")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.holder").value("PETR IVANOV"));
+                .andExpect(jsonPath("$.number").value("4111111111111111"));
 
         mockMvc.perform(patch("/api/cards/{id}/status", cardId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"active\": false}"))
+                        .content(statusJson(false)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.active").value(false));
     }
@@ -174,7 +93,7 @@ class PaymentCardFlowIntegrationTest {
 
         mockMvc.perform(patch("/api/cards/{id}/status", cardId1)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"active\": false}"))
+                        .content(statusJson(false)))
                 .andExpect(status().isOk());
 
         mockMvc.perform(post("/api/users/{userId}/cards", userId)
@@ -184,7 +103,7 @@ class PaymentCardFlowIntegrationTest {
 
         mockMvc.perform(patch("/api/cards/{id}/status", cardId1)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"active\": true}"))
+                        .content(statusJson(true)))
                 .andExpect(status().isConflict());
     }
 
@@ -199,5 +118,54 @@ class PaymentCardFlowIntegrationTest {
 
         mockMvc.perform(get("/api/cards/{id}", cardId))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("expired card -> 400 (@Future)")
+    void expiredCardReturns400() throws Exception {
+        long userId = createUser("ivan@example.com");
+
+        mockMvc.perform(post("/api/users/{userId}/cards", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cardJson("4111111111111111", LocalDate.of(2020, 1, 1))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.expirationDate").exists());
+    }
+
+    @Test
+    @DisplayName("card number with letters -> 400 (@Pattern)")
+    void invalidCardNumberReturns400() throws Exception {
+        long userId = createUser("ivan@example.com");
+
+        mockMvc.perform(post("/api/users/{userId}/cards", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cardJson("ABCD-1234")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.number").exists());
+    }
+
+    @Test
+    @DisplayName("card mutations evict the owner's cache entry")
+    void cardMutationsEvictUserCache() throws Exception {
+        long userId = createUser("ivan@example.com");
+        long cardId = createCard(userId, "4111111111111111");
+
+        mockMvc.perform(get("/api/users/{id}", userId))
+                .andExpect(status().isOk());
+        assertThatCachePresent(userId);
+
+        mockMvc.perform(put("/api/cards/{id}", cardId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cardJson("4111111111111111")))
+                .andExpect(status().isOk());
+        assertThatCacheAbsent(userId);
+    }
+
+    private void assertThatCachePresent(long userId) {
+        org.assertj.core.api.Assertions.assertThat(redisTemplate.hasKey(cacheKey(userId))).isTrue();
+    }
+
+    private void assertThatCacheAbsent(long userId) {
+        org.assertj.core.api.Assertions.assertThat(redisTemplate.hasKey(cacheKey(userId))).isFalse();
     }
 }

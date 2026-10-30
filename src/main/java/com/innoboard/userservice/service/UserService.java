@@ -1,21 +1,23 @@
 package com.innoboard.userservice.service;
 
-import com.innoboard.userservice.dto.UserDto;
-import com.innoboard.userservice.dto.UserWithCardsDto;
+import com.innoboard.userservice.dto.CreateUserRequest;
+import com.innoboard.userservice.dto.UpdateUserRequest;
+import com.innoboard.userservice.dto.UserResponse;
+import com.innoboard.userservice.dto.UserWithCardsResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 public interface UserService {
 
-    UserDto create(UserDto dto);
+    UserResponse create(CreateUserRequest request);
 
-    UserWithCardsDto getById(Long id);
+    UserWithCardsResponse getById(Long id);
 
-    Page<UserDto> getAll(String name, String surname, Pageable pageable);
+    Page<UserResponse> getAll(String name, String surname, Pageable pageable);
 
-    UserDto update(Long id, UserDto dto);
+    UserResponse update(Long id, UpdateUserRequest request);
 
-    UserDto updateStatus(Long id, boolean active);
+    UserResponse updateStatus(Long id, boolean active);
 
     void delete(Long id);
 }

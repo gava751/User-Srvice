@@ -1,6 +1,7 @@
 package com.innoboard.userservice.controller;
 
-import com.innoboard.userservice.dto.PaymentCardDto;
+import com.innoboard.userservice.dto.CardRequest;
+import com.innoboard.userservice.dto.CardResponse;
 import com.innoboard.userservice.dto.UpdateStatusRequest;
 import com.innoboard.userservice.service.PaymentCardService;
 import jakarta.validation.Valid;
@@ -16,19 +17,18 @@ public class CardController {
     private final PaymentCardService paymentCardService;
 
     @GetMapping("/{id}")
-    ResponseEntity<PaymentCardDto> getById(@PathVariable Long id) {
+    ResponseEntity<CardResponse> getById(@PathVariable Long id) {
         return ResponseEntity.ok(paymentCardService.getById(id));
     }
 
     @PutMapping("/{id}")
-    ResponseEntity<PaymentCardDto> update(@PathVariable Long id,
-                                          @Valid @RequestBody PaymentCardDto dto) {
-        return ResponseEntity.ok(paymentCardService.update(id, dto));
+    ResponseEntity<CardResponse> update(@PathVariable Long id, @Valid @RequestBody CardRequest request) {
+        return ResponseEntity.ok(paymentCardService.update(id, request));
     }
 
     @PatchMapping("/{id}/status")
-    ResponseEntity<PaymentCardDto> updateStatus(@PathVariable Long id,
-                                                @Valid @RequestBody UpdateStatusRequest request) {
+    ResponseEntity<CardResponse> updateStatus(@PathVariable Long id,
+                                              @Valid @RequestBody UpdateStatusRequest request) {
         return ResponseEntity.ok(paymentCardService.updateStatus(id, request.active()));
     }
 

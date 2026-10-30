@@ -1,12 +1,13 @@
 package com.innoboard.userservice.mapper;
 
 import com.innoboard.userservice.domain.PaymentCardEntity;
-import com.innoboard.userservice.dto.PaymentCardDto;
+import com.innoboard.userservice.dto.CardRequest;
+import com.innoboard.userservice.dto.CardResponse;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingConstants;
-import org.mapstruct.ReportingPolicy;
 import org.mapstruct.MappingTarget;
+import org.mapstruct.ReportingPolicy;
 
 import java.util.List;
 
@@ -14,19 +15,20 @@ import java.util.List;
         unmappedTargetPolicy = ReportingPolicy.ERROR)
 public interface PaymentCardMapper {
 
-    List<PaymentCardDto> toDtoList(List<PaymentCardEntity> entities);
-
     @Mapping(target = "userId", source = "user.id")
-    PaymentCardDto toDto(PaymentCardEntity entity);
+    CardResponse toResponse(PaymentCardEntity entity);
+
+    List<CardResponse> toResponseList(List<PaymentCardEntity> entities);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "user", ignore = true)
-    PaymentCardEntity toEntity(PaymentCardDto dto);
+    @Mapping(target = "active", ignore = true)
+    PaymentCardEntity toEntity(CardRequest request);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "user", ignore = true)
+    @Mapping(target = "active", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "active", ignore = true)
-    void updateEntityFromDto(PaymentCardDto dto, @MappingTarget PaymentCardEntity entity);
+    void updateEntityFromDto(CardRequest request, @MappingTarget PaymentCardEntity entity);
 }

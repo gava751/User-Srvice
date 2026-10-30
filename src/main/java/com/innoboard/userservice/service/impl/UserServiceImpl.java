@@ -2,9 +2,11 @@ package com.innoboard.userservice.service.impl;
 
 import com.innoboard.userservice.config.RedisCacheConfig;
 import com.innoboard.userservice.domain.UserEntity;
-import com.innoboard.userservice.dto.PaymentCardDto;
-import com.innoboard.userservice.dto.UserDto;
-import com.innoboard.userservice.dto.UserWithCardsDto;
+import com.innoboard.userservice.dto.CardResponse;
+import com.innoboard.userservice.dto.CreateUserRequest;
+import com.innoboard.userservice.dto.UpdateUserRequest;
+import com.innoboard.userservice.dto.UserResponse;
+import com.innoboard.userservice.dto.UserWithCardsResponse;
 import com.innoboard.userservice.exception.EmailAlreadyExistsException;
 import com.innoboard.userservice.exception.UserNotFoundException;
 import com.innoboard.userservice.mapper.PaymentCardMapper;
@@ -36,53 +38,54 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public UserDto create(UserDto dto) {
-        if (userRepository.existsByEmailIgnoreCase(dto.email())) {
-            throw new EmailAlreadyExistsException(dto.email());
+    public UserResponse create(CreateUserRequest request) {
+        if (userRepository.existsByEmailNormalized(request.email())) {
+            throw new EmailAlreadyExistsException(request.email());
         }
-        UserEntity entity = userMapper.toEntity(dto);
-        entity.setActive(true);   // состояние решает сервис, не клиент
-        return userMapper.toDto(userRepository.save(entity));
+        UserEntity entity = userMapper.toEntity(request);
+        entity.setActive(true);
+        return userMapper.toResponse(userRepository.save(entity));
     }
 
     @Override
     @Transactional(readOnly = true)
     @Cacheable(cacheNames = RedisCacheConfig.USERS_WITH_CARDS, key = "#id")
-    public UserWithCardsDto getById(Long id) {
+    public UserWithCardsResponse getById(Long id) {
         UserEntity user = findUserOrThrow(id);
-        List<PaymentCardDto> cards = cardMapper.toDtoList(paymentCardRepository.findByUserId(id));
-        return new UserWithCardsDto(userMapper.toDto(user), cards);
+        List<CardResponse> cards = cardMapper.toResponseList(paymentCardRepository.findByUserId(id));
+        return new UserWithCardsResponse(userMapper.toResponse(user), cards);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Page<UserDto> getAll(String name, String surname, Pageable pageable) {
+    public Page<UserResponse> getAll(String name, String surname, Pageable pageable) {
         Specification<UserEntity> spec = UserSpecifications.hasName(name)
                 .and(UserSpecifications.hasSurname(surname));
-        return userRepository.findAll(spec, pageable).map(userMapper::toDto);
+        return userRepository.findAll(spec, pageable).map(userMapper::toResponse);
     }
 
     @Override
     @Transactional
     @CacheEvict(cacheNames = RedisCacheConfig.USERS_WITH_CARDS, key = "#id")
-    public UserDto update(Long id, UserDto dto) {
-        if (userRepository.existsByEmailIgnoreCaseAndIdNot(dto.email(), id)) {
-            throw new EmailAlreadyExistsException(dto.email());
+    public UserResponse update(Long id, UpdateUserRequest request) {
+        if (userRepository.existsByEmailNormalizedAndIdNot(request.email(), id)) {
+            throw new EmailAlreadyExistsException(request.email());
         }
         UserEntity entity = findUserOrThrow(id);
-        userMapper.updateEntityFromDto(dto, entity);
-        return userMapper.toDto(userRepository.save(entity));
+        userMapper.updateEntityFromDto(request, entity);
+        return userMapper.toResponse(userRepository.save(entity));
     }
 
     @Override
     @Transactional
     @CacheEvict(cacheNames = RedisCacheConfig.USERS_WITH_CARDS, key = "#id")
-    public UserDto updateStatus(Long id, boolean active) {
+    public UserResponse updateStatus(Long id, boolean active) {
         int updated = userRepository.updateActiveStatus(id, active, Instant.now());
         if (updated == 0) {
             throw new UserNotFoundException(id);
         }
-        return userMapper.toDto(userRepository.findById(id).orElseThrow());
+
+        return userMapper.toResponse(userRepository.findById(id).orElseThrow());
     }
 
     @Override

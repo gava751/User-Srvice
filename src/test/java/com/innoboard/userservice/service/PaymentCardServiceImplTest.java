@@ -3,7 +3,8 @@ package com.innoboard.userservice.service;
 import com.innoboard.userservice.config.RedisCacheConfig;
 import com.innoboard.userservice.domain.PaymentCardEntity;
 import com.innoboard.userservice.domain.UserEntity;
-import com.innoboard.userservice.dto.PaymentCardDto;
+import com.innoboard.userservice.dto.CardRequest;
+import com.innoboard.userservice.dto.CardResponse;
 import com.innoboard.userservice.exception.CardLimitExceededException;
 import com.innoboard.userservice.exception.CardNotFoundException;
 import com.innoboard.userservice.exception.CardNumberAlreadyExistsException;
@@ -34,6 +35,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -41,6 +43,7 @@ class PaymentCardServiceImplTest {
 
     private static final Long USER_ID = 1L;
     private static final Long CARD_ID = 10L;
+    private static final String NUMBER = "4111111111111111";
 
     @Mock
     private CacheManager cacheManager;
@@ -61,13 +64,17 @@ class PaymentCardServiceImplTest {
                 .email("ivan@example.com").active(true).build();
     }
 
-    private PaymentCardDto cardDto(boolean active) {
-        return new PaymentCardDto(null, USER_ID, "4111111111111111",
-                "IVAN IVANOV", LocalDate.of(2030, 12, 31), active);
+    private CardRequest cardRequest() {
+        return new CardRequest(NUMBER, "IVAN IVANOV", LocalDate.of(2030, 12, 31));
+    }
+
+    private CardResponse cardResponse(boolean active) {
+        return new CardResponse(CARD_ID, USER_ID, NUMBER, "IVAN IVANOV",
+                LocalDate.of(2030, 12, 31), active);
     }
 
     private PaymentCardEntity card(boolean active) {
-        return PaymentCardEntity.builder().id(CARD_ID).number("4111111111111111")
+        return PaymentCardEntity.builder().id(CARD_ID).number(NUMBER)
                 .holder("IVAN IVANOV").expirationDate(LocalDate.of(2030, 12, 31))
                 .active(active).build();
     }
@@ -87,7 +94,7 @@ class PaymentCardServiceImplTest {
         void throwsWhenUserMissing() {
             when(userRepository.findById(USER_ID)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> cardService.create(USER_ID, cardDto(true)))
+            assertThatThrownBy(() -> cardService.create(USER_ID, cardRequest()))
                     .isInstanceOf(UserNotFoundException.class);
             verify(paymentCardRepository, never()).save(any());
         }
@@ -96,9 +103,9 @@ class PaymentCardServiceImplTest {
         @DisplayName("throws when card number is already taken")
         void throwsWhenDuplicateNumber() {
             when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user(USER_ID)));
-            when(paymentCardRepository.existsByNumber("4111111111111111")).thenReturn(true);
+            when(paymentCardRepository.existsByNumber(NUMBER)).thenReturn(true);
 
-            assertThatThrownBy(() -> cardService.create(USER_ID, cardDto(true)))
+            assertThatThrownBy(() -> cardService.create(USER_ID, cardRequest()))
                     .isInstanceOf(CardNumberAlreadyExistsException.class);
             verify(paymentCardRepository, never()).save(any());
         }
@@ -107,27 +114,28 @@ class PaymentCardServiceImplTest {
         @DisplayName("throws when user already has 5 ACTIVE cards")
         void throwsWhenActiveLimitReached() {
             when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user(USER_ID)));
-            when(paymentCardRepository.existsByNumber("4111111111111111")).thenReturn(false);
+            when(paymentCardRepository.existsByNumber(NUMBER)).thenReturn(false);
             when(paymentCardRepository.countByUserIdAndActiveTrue(USER_ID)).thenReturn(5L);
 
-            assertThatThrownBy(() -> cardService.create(USER_ID, cardDto(true)))
+            assertThatThrownBy(() -> cardService.create(USER_ID, cardRequest()))
                     .isInstanceOf(CardLimitExceededException.class);
             verify(paymentCardRepository, never()).save(any());
         }
 
         @Test
-        @DisplayName("links card to user and persists it directly")
+        @DisplayName("links card to user, persists it and evicts owner cache")
         void createsAndLinksCard() {
             UserEntity owner = user(USER_ID);
             PaymentCardEntity entity = card(false);
             when(userRepository.findById(USER_ID)).thenReturn(Optional.of(owner));
-            when(paymentCardRepository.existsByNumber("4111111111111111")).thenReturn(false);
+            when(paymentCardRepository.existsByNumber(NUMBER)).thenReturn(false);
             when(paymentCardRepository.countByUserIdAndActiveTrue(USER_ID)).thenReturn(0L);
-            when(cardMapper.toEntity(cardDto(true))).thenReturn(entity);
+            when(cardMapper.toEntity(cardRequest())).thenReturn(entity);
             when(paymentCardRepository.save(entity)).thenReturn(entity);
-            when(cardMapper.toDto(entity)).thenReturn(cardDto(true));
+            when(cardMapper.toResponse(entity)).thenReturn(cardResponse(true));
+            when(cacheManager.getCache(RedisCacheConfig.USERS_WITH_CARDS)).thenReturn(cache);
 
-            cardService.create(USER_ID, cardDto(true));
+            cardService.create(USER_ID, cardRequest());
 
             ArgumentCaptor<PaymentCardEntity> captor = ArgumentCaptor.forClass(PaymentCardEntity.class);
             verify(paymentCardRepository).save(captor.capture());
@@ -135,6 +143,7 @@ class PaymentCardServiceImplTest {
             assertThat(owner.getPaymentCards()).contains(entity);
             assertThat(entity.getActive()).isTrue();
             verify(userRepository, never()).save(any());
+            verify(cache).evictIfPresent(USER_ID);
         }
     }
 
@@ -143,13 +152,13 @@ class PaymentCardServiceImplTest {
     class GetById {
 
         @Test
-        @DisplayName("returns mapped DTO when card exists")
-        void returnsDto() {
+        @DisplayName("returns mapped response when card exists")
+        void returnsResponse() {
             PaymentCardEntity entity = card(true);
             when(paymentCardRepository.findById(CARD_ID)).thenReturn(Optional.of(entity));
-            when(cardMapper.toDto(entity)).thenReturn(cardDto(true));
+            when(cardMapper.toResponse(entity)).thenReturn(cardResponse(true));
 
-            assertThat(cardService.getById(CARD_ID)).isEqualTo(cardDto(true));
+            assertThat(cardService.getById(CARD_ID)).isEqualTo(cardResponse(true));
         }
 
         @Test
@@ -170,11 +179,11 @@ class PaymentCardServiceImplTest {
         @DisplayName("updates fields via mapper, saves and evicts owner cache")
         void updatesAndSaves() {
             PaymentCardEntity entity = ownedCard(true);
-            PaymentCardDto request = cardDto(true);
+            CardRequest request = cardRequest();
             when(paymentCardRepository.findById(CARD_ID)).thenReturn(Optional.of(entity));
-            when(paymentCardRepository.existsByNumberAndIdNot("4111111111111111", CARD_ID)).thenReturn(false);
+            when(paymentCardRepository.existsByNumberAndIdNot(NUMBER, CARD_ID)).thenReturn(false);
             when(paymentCardRepository.save(entity)).thenReturn(entity);
-            when(cardMapper.toDto(entity)).thenReturn(request);
+            when(cardMapper.toResponse(entity)).thenReturn(cardResponse(true));
             when(cacheManager.getCache(RedisCacheConfig.USERS_WITH_CARDS)).thenReturn(cache);
 
             cardService.update(CARD_ID, request);
@@ -189,9 +198,9 @@ class PaymentCardServiceImplTest {
         void throwsWhenNumberTaken() {
             PaymentCardEntity entity = ownedCard(true);
             when(paymentCardRepository.findById(CARD_ID)).thenReturn(Optional.of(entity));
-            when(paymentCardRepository.existsByNumberAndIdNot("4111111111111111", CARD_ID)).thenReturn(true);
+            when(paymentCardRepository.existsByNumberAndIdNot(NUMBER, CARD_ID)).thenReturn(true);
 
-            assertThatThrownBy(() -> cardService.update(CARD_ID, cardDto(true)))
+            assertThatThrownBy(() -> cardService.update(CARD_ID, cardRequest()))
                     .isInstanceOf(CardNumberAlreadyExistsException.class);
             verify(paymentCardRepository, never()).save(any());
             verify(cacheManager, never()).getCache(any());
@@ -202,7 +211,7 @@ class PaymentCardServiceImplTest {
         void throwsWhenMissing() {
             when(paymentCardRepository.findById(CARD_ID)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> cardService.update(CARD_ID, cardDto(true)))
+            assertThatThrownBy(() -> cardService.update(CARD_ID, cardRequest()))
                     .isInstanceOf(CardNotFoundException.class);
         }
     }
@@ -216,7 +225,7 @@ class PaymentCardServiceImplTest {
         void returnsCards() {
             when(userRepository.existsById(USER_ID)).thenReturn(true);
             when(paymentCardRepository.findByUserId(USER_ID)).thenReturn(List.of(card(true)));
-            when(cardMapper.toDtoList(any())).thenReturn(List.of(cardDto(true)));
+            when(cardMapper.toResponseList(any())).thenReturn(List.of(cardResponse(true)));
 
             assertThat(cardService.getAllByUserId(USER_ID)).hasSize(1);
             verify(paymentCardRepository).findByUserId(USER_ID);
@@ -246,7 +255,7 @@ class PaymentCardServiceImplTest {
                     .thenReturn(Optional.of(inactive), Optional.of(activated));
             when(paymentCardRepository.countByUserIdAndActiveTrue(USER_ID)).thenReturn(4L);
             when(paymentCardRepository.updateActiveStatus(eq(CARD_ID), eq(true), any())).thenReturn(1);
-            when(cardMapper.toDto(activated)).thenReturn(cardDto(true));
+            when(cardMapper.toResponse(activated)).thenReturn(cardResponse(true));
             when(cacheManager.getCache(RedisCacheConfig.USERS_WITH_CARDS)).thenReturn(cache);
 
             cardService.updateStatus(CARD_ID, true);
@@ -274,7 +283,7 @@ class PaymentCardServiceImplTest {
             when(paymentCardRepository.findById(CARD_ID))
                     .thenReturn(Optional.of(active), Optional.of(card(false)));
             when(paymentCardRepository.updateActiveStatus(eq(CARD_ID), eq(false), any())).thenReturn(1);
-            when(cardMapper.toDto(any())).thenReturn(cardDto(false));
+            when(cardMapper.toResponse(any())).thenReturn(cardResponse(false));
             when(cacheManager.getCache(RedisCacheConfig.USERS_WITH_CARDS)).thenReturn(cache);
 
             cardService.updateStatus(CARD_ID, false);
