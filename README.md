@@ -15,12 +15,15 @@ Spring Boot microservice managing users and their payment cards.
 All database and server settings are provided via environment variables
 (with local-run defaults):
 
-| Variable      | Default                                            | Description          |
+| Variable      | Default (local)                                    | Description          |
 |---------------|----------------------------------------------------|----------------------|
 | `DB_URL`      | `jdbc:postgresql://localhost:5432/user_service`    | JDBC URL             |
-| `DB_USERNAME` | `postgres`                                         | DB user              |
-| `DB_PASSWORD` | `postgres`                                         | DB password          |
-| `SERVER_PORT` | `8080`                                             | HTTP port            |
+| `DB_USERNAME` | `user_service`                                     | DB user              |
+| `DB_PASSWORD` | — (без дефолта, обязательно)                       | DB password          |
+| `SERVER_PORT` | `8081` (8080 зарезервирован под API Gateway)       | HTTP port            |
+| `REDIS_HOST`  | `localhost`                                        | Redis host           |
+| `REDIS_PORT`  | `6379`                                             | Redis port           |
+
 
 The database schema is created and versioned exclusively by Liquibase
 (`src/main/resources/db/changelog`), so Hibernate runs with
@@ -37,14 +40,10 @@ The database schema is created and versioned exclusively by Liquibase
 ./mvnw spring-boot:run
 ```
 
-Requires a running PostgreSQL instance, e.g.:
+Requires PostgreSQL and Redis:
 
 ```bash
-docker run -d --name user-service-db \
-  -e POSTGRES_DB=user_service \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=postgres \
-  -p 5432:5432 postgres:17
+docker compose up -d
 ```
 
 ## Build
