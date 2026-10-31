@@ -54,9 +54,4 @@ public class UserEntity extends Auditable {
         paymentCards.add(card);
         card.setUser(this);
     }
-
-    public void removeCard(PaymentCardEntity card) {
-        paymentCards.remove(card);
-        card.setUser(null);
-    }
 }

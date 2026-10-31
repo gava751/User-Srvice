@@ -37,12 +37,10 @@
     </changeSet>
 
     <changeSet id="001-create-users-indexes" author="gava751">
-        <!-- Email is unique per user -->
         <createIndex indexName="idx_users_email" tableName="users" unique="true">
             <column name="email"/>
         </createIndex>
 
-        <!-- Supports filtering by first name and surname (task: DAO layer) -->
         <createIndex indexName="idx_users_name_surname" tableName="users">
             <column name="name"/>
             <column name="surname"/>

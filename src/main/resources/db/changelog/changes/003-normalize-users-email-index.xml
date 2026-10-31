@@ -5,12 +5,6 @@
         xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
                             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
-    <!--
-        Проверка дубликатов в приложении регистронезависима
-        (existsByEmailIgnoreCase), поэтому уникальность на уровне БД
-        тоже должна быть регистронезависимой: функциональный
-        уникальный индекс по lower(email).
-    -->
     <changeSet id="003-normalize-users-email-index" author="gava751">
         <dropIndex indexName="idx_users_email" tableName="users"/>
 
