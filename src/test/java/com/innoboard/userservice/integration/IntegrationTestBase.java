@@ -18,8 +18,11 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.Duration;
 import java.time.LocalDate;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -102,5 +105,15 @@ public abstract class IntegrationTestBase {
 
     protected String cacheKey(long userId) {
         return "usersWithCards::" + userId;
+    }
+
+    protected void awaitCacheEntry(long userId) {
+        await().atMost(Duration.ofSeconds(2)).untilAsserted(() ->
+                assertThat(redisTemplate.hasKey(cacheKey(userId))).isTrue());
+    }
+
+    protected void awaitNoCacheEntry(long userId) {
+        await().atMost(Duration.ofSeconds(2)).untilAsserted(() ->
+                assertThat(redisTemplate.hasKey(cacheKey(userId))).isFalse());
     }
 }

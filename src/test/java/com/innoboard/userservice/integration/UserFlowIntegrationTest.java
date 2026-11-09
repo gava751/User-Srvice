@@ -115,7 +115,7 @@ class UserFlowIntegrationTest extends IntegrationTestBase {
 
         mockMvc.perform(get("/api/users/{id}", id))
                 .andExpect(status().isOk());
-        assertThat(redisTemplate.hasKey(cacheKey(id))).isTrue();
+        awaitCacheEntry(id);
 
         mockMvc.perform(get("/api/users/{id}", id))
                 .andExpect(status().isOk());
@@ -125,7 +125,7 @@ class UserFlowIntegrationTest extends IntegrationTestBase {
                         .content(userJson("petr@example.com")))
                 .andExpect(status().isOk());
 
-        assertThat(redisTemplate.hasKey(cacheKey(id))).isFalse();
+        awaitNoCacheEntry(id);
     }
 
     @Test
@@ -135,18 +135,18 @@ class UserFlowIntegrationTest extends IntegrationTestBase {
 
         mockMvc.perform(get("/api/users/{id}", id))
                 .andExpect(status().isOk());
-        assertThat(redisTemplate.hasKey(cacheKey(id))).isTrue();
+        awaitCacheEntry(id);
 
         mockMvc.perform(patch("/api/users/{id}/status", id)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(statusJson(false)))
                 .andExpect(status().isOk());
-        assertThat(redisTemplate.hasKey(cacheKey(id))).isFalse();
+        awaitNoCacheEntry(id);
 
         mockMvc.perform(get("/api/users/{id}", id))
                 .andExpect(status().isOk());
         mockMvc.perform(delete("/api/users/{id}", id))
                 .andExpect(status().isNoContent());
-        assertThat(redisTemplate.hasKey(cacheKey(id))).isFalse();
+        awaitNoCacheEntry(id);
     }
 }
