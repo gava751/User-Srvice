@@ -17,8 +17,4 @@ public final class UserSpecifications {
         return (root, query, cb) ->
                 surname == null ? cb.conjunction() : cb.equal(cb.lower(root.get("surname")), surname.toLowerCase());
     }
-
-    public static Specification<UserEntity> isActive() {
-        return (root, query, cb) -> cb.isTrue(root.get("active"));
-    }
 }
