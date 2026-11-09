@@ -20,7 +20,7 @@ All database and server settings are provided via environment variables
 | `DB_URL`      | `jdbc:postgresql://localhost:5432/user_service`    | JDBC URL             |
 | `DB_USERNAME` | `user_service`                                     | DB user              |
 | `DB_PASSWORD` | — (без дефолта, обязательно)                       | DB password          |
-| `SERVER_PORT` | `8081` (8080 зарезервирован под API Gateway)       | HTTP port            |
+| `SERVER_PORT` | `8082` (8080 занят API Gateway)                    | HTTP port            |
 | `REDIS_HOST`  | `localhost`                                        | Redis host           |
 | `REDIS_PORT`  | `6379`                                             | Redis port           |
 

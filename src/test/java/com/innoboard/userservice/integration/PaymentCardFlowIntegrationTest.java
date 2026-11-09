@@ -152,20 +152,12 @@ class PaymentCardFlowIntegrationTest extends IntegrationTestBase {
 
         mockMvc.perform(get("/api/users/{id}", userId))
                 .andExpect(status().isOk());
-        assertThatCachePresent(userId);
+        awaitCacheEntry(userId);
 
         mockMvc.perform(put("/api/cards/{id}", cardId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(cardJson("4111111111111111")))
                 .andExpect(status().isOk());
-        assertThatCacheAbsent(userId);
-    }
-
-    private void assertThatCachePresent(long userId) {
-        org.assertj.core.api.Assertions.assertThat(redisTemplate.hasKey(cacheKey(userId))).isTrue();
-    }
-
-    private void assertThatCacheAbsent(long userId) {
-        org.assertj.core.api.Assertions.assertThat(redisTemplate.hasKey(cacheKey(userId))).isFalse();
+        awaitNoCacheEntry(userId);
     }
 }
