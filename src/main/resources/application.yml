@@ -22,7 +22,7 @@ spring:
     change-log: classpath:db/changelog/master.yaml
 
 server:
-  port: ${SERVER_PORT:8081}
+  port: ${SERVER_PORT:8082}
 
 management:
   endpoints:
