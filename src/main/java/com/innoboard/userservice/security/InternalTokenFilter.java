@@ -15,12 +15,14 @@ import java.security.MessageDigest;
 @Component
 public class InternalTokenFilter extends OncePerRequestFilter {
 
-    private static final String INTERNAL_PATH_PREFIX = "/internal/";
     private static final String TOKEN_HEADER = "X-Internal-Token";
 
+    private final String internalPathPrefix;
     private final String internalToken;
 
-    public InternalTokenFilter(@Value("${app.internal.token}") String internalToken) {
+    public InternalTokenFilter(@Value("${app.internal.path-prefix}") String internalPathPrefix,
+                               @Value("${app.internal.token}") String internalToken) {
+        this.internalPathPrefix = internalPathPrefix;
         this.internalToken = internalToken;
     }
 
@@ -28,7 +30,7 @@ public class InternalTokenFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        if (request.getRequestURI().startsWith(INTERNAL_PATH_PREFIX)
+        if (request.getRequestURI().startsWith(internalPathPrefix)
                 && !isTokenValid(request.getHeader(TOKEN_HEADER))) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return;

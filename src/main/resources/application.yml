@@ -42,6 +42,7 @@ management:
 
 app:
   internal:
+    path-prefix: /internal/
     token: ${INTERNAL_SERVICE_TOKEN}
 
 logging:
