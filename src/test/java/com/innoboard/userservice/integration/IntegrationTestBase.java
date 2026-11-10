@@ -13,7 +13,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import tools.jackson.databind.ObjectMapper;
@@ -41,6 +46,11 @@ public abstract class IntegrationTestBase {
         redis.start();
     }
 
+    @DynamicPropertySource
+    static void internalTokenProperties(DynamicPropertyRegistry registry) {
+        registry.add("app.internal.token", () -> "test-internal-token");
+    }
+
     @Autowired
     protected MockMvc mockMvc;
 
@@ -66,6 +76,17 @@ public abstract class IntegrationTestBase {
         });
     }
 
+    protected RequestPostProcessor adminToken() {
+        return SecurityMockMvcRequestPostProcessors.jwt()
+                .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
+    }
+
+    protected RequestPostProcessor userToken(long userId) {
+        return SecurityMockMvcRequestPostProcessors.jwt()
+                .jwt(jwt -> jwt.claim("user_id", userId))
+                .authorities(new SimpleGrantedAuthority("ROLE_USER"));
+    }
+
     protected String userJson(String email) throws Exception {
         CreateUserRequest request = new CreateUserRequest("Ivan", "Ivanov",
                 LocalDate.of(1990, 1, 1), email);
@@ -74,6 +95,7 @@ public abstract class IntegrationTestBase {
 
     protected long createUser(String email) throws Exception {
         String created = mockMvc.perform(post("/api/users")
+                        .with(adminToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(userJson(email)))
                 .andExpect(status().isCreated())
@@ -92,6 +114,7 @@ public abstract class IntegrationTestBase {
 
     protected long createCard(long userId, String number) throws Exception {
         String created = mockMvc.perform(post("/api/users/{userId}/cards", userId)
+                        .with(adminToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(cardJson(number)))
                 .andExpect(status().isCreated())
