@@ -22,22 +22,24 @@ class PaymentCardFlowIntegrationTest extends IntegrationTestBase {
         long userId = createUser("ivan@example.com");
         long cardId = createCard(userId, "4111111111111111");
 
-        mockMvc.perform(get("/api/users/{userId}/cards", userId))
+        mockMvc.perform(get("/api/users/{userId}/cards", userId).with(adminToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].number").value("4111111111111111"))
                 .andExpect(jsonPath("$[0].userId").value((int) userId));
 
-        mockMvc.perform(get("/api/cards/{id}", cardId))
+        mockMvc.perform(get("/api/cards/{id}", cardId).with(adminToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.holder").value("IVAN IVANOV"));
 
         mockMvc.perform(put("/api/cards/{id}", cardId)
+                        .with(adminToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(cardJson("4111111111111111")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.number").value("4111111111111111"));
 
         mockMvc.perform(patch("/api/cards/{id}/status", cardId)
+                        .with(adminToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(statusJson(false)))
                 .andExpect(status().isOk())
@@ -51,6 +53,7 @@ class PaymentCardFlowIntegrationTest extends IntegrationTestBase {
         createCard(userId, "4111111111111111");
 
         mockMvc.perform(post("/api/users/{userId}/cards", userId)
+                        .with(adminToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(cardJson("4111111111111111")))
                 .andExpect(status().isConflict())
@@ -61,6 +64,7 @@ class PaymentCardFlowIntegrationTest extends IntegrationTestBase {
     @DisplayName("card for missing user -> 404")
     void cardForMissingUserReturns404() throws Exception {
         mockMvc.perform(post("/api/users/{userId}/cards", 9999L)
+                        .with(adminToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(cardJson("4111111111111111")))
                 .andExpect(status().isNotFound());
@@ -69,7 +73,7 @@ class PaymentCardFlowIntegrationTest extends IntegrationTestBase {
     @Test
     @DisplayName("cards of missing user -> 404 (not an empty list)")
     void cardsOfMissingUserReturn404() throws Exception {
-        mockMvc.perform(get("/api/users/{userId}/cards", 9999L))
+        mockMvc.perform(get("/api/users/{userId}/cards", 9999L).with(adminToken()))
                 .andExpect(status().isNotFound());
     }
 
@@ -87,21 +91,25 @@ class PaymentCardFlowIntegrationTest extends IntegrationTestBase {
         }
 
         mockMvc.perform(post("/api/users/{userId}/cards", userId)
+                        .with(adminToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(cardJson("4222222222221119")))
                 .andExpect(status().isConflict());
 
         mockMvc.perform(patch("/api/cards/{id}/status", cardId1)
+                        .with(adminToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(statusJson(false)))
                 .andExpect(status().isOk());
 
         mockMvc.perform(post("/api/users/{userId}/cards", userId)
+                        .with(adminToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(cardJson("4222222222221119")))
                 .andExpect(status().isCreated());
 
         mockMvc.perform(patch("/api/cards/{id}/status", cardId1)
+                        .with(adminToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(statusJson(true)))
                 .andExpect(status().isConflict());
@@ -113,10 +121,10 @@ class PaymentCardFlowIntegrationTest extends IntegrationTestBase {
         long userId = createUser("ivan@example.com");
         long cardId = createCard(userId, "4111111111111111");
 
-        mockMvc.perform(delete("/api/cards/{id}", cardId))
+        mockMvc.perform(delete("/api/cards/{id}", cardId).with(adminToken()))
                 .andExpect(status().isNoContent());
 
-        mockMvc.perform(get("/api/cards/{id}", cardId))
+        mockMvc.perform(get("/api/cards/{id}", cardId).with(adminToken()))
                 .andExpect(status().isNotFound());
     }
 
@@ -126,6 +134,7 @@ class PaymentCardFlowIntegrationTest extends IntegrationTestBase {
         long userId = createUser("ivan@example.com");
 
         mockMvc.perform(post("/api/users/{userId}/cards", userId)
+                        .with(adminToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(cardJson("4111111111111111", LocalDate.of(2020, 1, 1))))
                 .andExpect(status().isBadRequest())
@@ -138,6 +147,7 @@ class PaymentCardFlowIntegrationTest extends IntegrationTestBase {
         long userId = createUser("ivan@example.com");
 
         mockMvc.perform(post("/api/users/{userId}/cards", userId)
+                        .with(adminToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(cardJson("ABCD-1234")))
                 .andExpect(status().isBadRequest())
@@ -150,11 +160,12 @@ class PaymentCardFlowIntegrationTest extends IntegrationTestBase {
         long userId = createUser("ivan@example.com");
         long cardId = createCard(userId, "4111111111111111");
 
-        mockMvc.perform(get("/api/users/{id}", userId))
+        mockMvc.perform(get("/api/users/{id}", userId).with(adminToken()))
                 .andExpect(status().isOk());
         awaitCacheEntry(userId);
 
         mockMvc.perform(put("/api/cards/{id}", cardId)
+                        .with(adminToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(cardJson("4111111111111111")))
                 .andExpect(status().isOk());

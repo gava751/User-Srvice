@@ -5,6 +5,12 @@ spring:
   application:
     name: user-service
 
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${AUTH_SERVICE_URL:http://localhost:8081}/.well-known/jwks.json
+
   datasource:
     username: ${DB_USERNAME:user_service}
     password: ${DB_PASSWORD}
@@ -33,6 +39,11 @@ management:
     health:
       probes:
         enabled: true
+
+app:
+  internal:
+    path-prefix: /internal/
+    token: ${INTERNAL_SERVICE_TOKEN}
 
 logging:
   level:

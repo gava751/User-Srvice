@@ -20,7 +20,7 @@ class UserFlowIntegrationTest extends IntegrationTestBase {
     void fullUserLifecycle() throws Exception {
         long id = createUser("ivan@example.com");
 
-        mockMvc.perform(get("/api/users/{id}", id))
+        mockMvc.perform(get("/api/users/{id}", id).with(adminToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.user.id").value((int) id))
                 .andExpect(jsonPath("$.user.name").value("Ivan"))
@@ -28,18 +28,21 @@ class UserFlowIntegrationTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.cards").isArray());
 
         mockMvc.perform(put("/api/users/{id}", id)
+                        .with(adminToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(userJson("petr@example.com")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").value("petr@example.com"));
 
         mockMvc.perform(patch("/api/users/{id}/status", id)
+                        .with(adminToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(statusJson(false)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.active").value(false));
 
         mockMvc.perform(get("/api/users")
+                        .with(adminToken())
                         .param("surname", "Ivanov").param("page", "0").param("size", "5"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].id").value((int) id));
@@ -51,6 +54,7 @@ class UserFlowIntegrationTest extends IntegrationTestBase {
     @DisplayName("invalid email -> 400 with field error from validation")
     void invalidEmailReturns400WithFieldError() throws Exception {
         mockMvc.perform(post("/api/users")
+                        .with(adminToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(userJson("not-an-email")))
                 .andExpect(status().isBadRequest())
@@ -63,6 +67,7 @@ class UserFlowIntegrationTest extends IntegrationTestBase {
         createUser("ivan@example.com");
 
         mockMvc.perform(post("/api/users")
+                        .with(adminToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(userJson("ivan@example.com")))
                 .andExpect(status().isConflict())
@@ -72,7 +77,7 @@ class UserFlowIntegrationTest extends IntegrationTestBase {
     @Test
     @DisplayName("missing user -> 404 with ErrorResponse")
     void missingUserReturns404() throws Exception {
-        mockMvc.perform(get("/api/users/{id}", 9999L))
+        mockMvc.perform(get("/api/users/{id}", 9999L).with(adminToken()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.message").exists());
@@ -88,6 +93,7 @@ class UserFlowIntegrationTest extends IntegrationTestBase {
         }
 
         mockMvc.perform(post("/api/users/{userId}/cards", userId)
+                        .with(adminToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(cardJson("4111111111111119")))
                 .andExpect(status().isConflict());
@@ -99,10 +105,10 @@ class UserFlowIntegrationTest extends IntegrationTestBase {
         long userId = createUser("ivan@example.com");
         createCard(userId, "4111111111111111");
 
-        mockMvc.perform(delete("/api/users/{id}", userId))
+        mockMvc.perform(delete("/api/users/{id}", userId).with(adminToken()))
                 .andExpect(status().isNoContent());
 
-        mockMvc.perform(get("/api/users/{id}", userId))
+        mockMvc.perform(get("/api/users/{id}", userId).with(adminToken()))
                 .andExpect(status().isNotFound());
 
         assertThat(paymentCardRepository.count()).isZero();
@@ -113,14 +119,15 @@ class UserFlowIntegrationTest extends IntegrationTestBase {
     void cacheReadAndEviction() throws Exception {
         long id = createUser("ivan@example.com");
 
-        mockMvc.perform(get("/api/users/{id}", id))
+        mockMvc.perform(get("/api/users/{id}", id).with(adminToken()))
                 .andExpect(status().isOk());
         awaitCacheEntry(id);
 
-        mockMvc.perform(get("/api/users/{id}", id))
+        mockMvc.perform(get("/api/users/{id}", id).with(adminToken()))
                 .andExpect(status().isOk());
 
         mockMvc.perform(put("/api/users/{id}", id)
+                        .with(adminToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(userJson("petr@example.com")))
                 .andExpect(status().isOk());
@@ -133,19 +140,20 @@ class UserFlowIntegrationTest extends IntegrationTestBase {
     void cacheEvictedOnStatusChangeAndDelete() throws Exception {
         long id = createUser("ivan@example.com");
 
-        mockMvc.perform(get("/api/users/{id}", id))
+        mockMvc.perform(get("/api/users/{id}", id).with(adminToken()))
                 .andExpect(status().isOk());
         awaitCacheEntry(id);
 
         mockMvc.perform(patch("/api/users/{id}/status", id)
+                        .with(adminToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(statusJson(false)))
                 .andExpect(status().isOk());
         awaitNoCacheEntry(id);
 
-        mockMvc.perform(get("/api/users/{id}", id))
+        mockMvc.perform(get("/api/users/{id}", id).with(adminToken()))
                 .andExpect(status().isOk());
-        mockMvc.perform(delete("/api/users/{id}", id))
+        mockMvc.perform(delete("/api/users/{id}", id).with(adminToken()))
                 .andExpect(status().isNoContent());
         awaitNoCacheEntry(id);
     }
